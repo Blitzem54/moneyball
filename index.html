@@ -74,6 +74,7 @@ tr.exempt td.nm span.n{color:var(--take)}
 .cu.c{background:var(--closebg);color:var(--close);border-color:var(--close)}
 .cu.t{background:var(--takebg);color:var(--take);border-color:var(--take)}
 .dimv{color:var(--faint)}
+#clock{color:var(--accent);font-weight:600}
 .legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:14px 0 6px;
   font-size:12px;color:var(--dim)}
 .legend .cu{min-width:0}
@@ -97,8 +98,9 @@ tr.exempt td.nm span.n{color:var(--take)}
   <div class="lab">My picks</div>
   <div class="list" id="picks"></div>
   <div class="ctl">
+    <span id="clock">Pick 1 on the clock</span>
     <label for="cur">Current pick</label>
-    <input type="number" id="cur" value="0" min="0" max="300" step="1">
+    <input type="number" id="cur" value="1" min="0" max="300" step="1">
     <span>Next pick: <b id="np">6</b></span>
     <span class="dimv">cushion = live ADP minus next pick</span>
   </div>
@@ -131,6 +133,7 @@ tr.exempt td.nm span.n{color:var(--take)}
   <th data-k="7" class="hideS">Span</th>
   <th data-k="8">Live ADP</th>
   <th data-k="99">Cushion</th>
+  <th data-k="98">Drafted at</th>
 </tr></thead>
 <tbody id="tb"></tbody>
 </table>
@@ -333,11 +336,20 @@ var DATA=[
 ];
 var PICKS=[6, 15, 26, 35, 46, 55, 66, 75, 86, 95, 106, 115, 126, 135, 146, 155, 166];
 var EXEMPT={29:"EXEMPT LIST: do not draft."};
-var drafted={},pos="ALL",q="",sk=0,sd=1,cur=0;
+var order=[],drafted={},pos="ALL",q="",sk=0,sd=1,cur=1;
 
 var tb=document.getElementById("tb"),cnt=document.getElementById("count"),
     npEl=document.getElementById("np"),curEl=document.getElementById("cur"),
-    picksEl=document.getElementById("picks");
+    picksEl=document.getElementById("picks"),clockEl=document.getElementById("clock");
+
+function sync(){
+  drafted={};
+  for(var i=0;i<order.length;i++) drafted[order[i]]=i+1;
+  cur=order.length+1;
+  curEl.value=cur;
+  clockEl.textContent="Pick "+cur+" on the clock";
+  drawPicks();draw();
+}
 
 function nextPick(){
   for(var i=0;i<PICKS.length;i++) if(PICKS[i]>cur) return PICKS[i];
@@ -366,6 +378,7 @@ function view(){
   r.sort(function(a,b){
     var x,y;
     if(sk===99){x=cushion(a[8]);y=cushion(b[8]);}
+    else if(sk===98){x=drafted[a[10]]||null;y=drafted[b[10]]||null;}
     else if(sk===9){x=a[9];y=b[9];}
     else{x=a[sk];y=b[sk];}
     if(x===null&&y===null)return 0;
@@ -396,7 +409,8 @@ function draw(){
       +'<td>'+(x[9]===null?'<span class="dimv">NONE</span>':x[9])+'</td>'
       +'<td>'+x[4]+'</td><td>'+x[5]+'</td><td>'+x[6]+'</td>'
       +'<td class="hideS">'+x[7]+'</td><td>'+x[8]+'</td>'
-      +'<td>'+lab+'</td></tr>';
+      +'<td>'+lab+'</td>'
+      +'<td>'+(drafted[x[10]]?drafted[x[10]]:'<span class="dimv">-</span>')+'</td></tr>';
   }
   tb.innerHTML=h;
   var n=0;for(var k in drafted)if(drafted[k])n++;
@@ -405,8 +419,10 @@ function draw(){
 
 tb.addEventListener("click",function(e){
   var tr=e.target.closest("tr");if(!tr)return;
-  var f=tr.getAttribute("data-f");
-  drafted[f]=!drafted[f];draw();});
+  var f=+tr.getAttribute("data-f");
+  var i=order.indexOf(f);
+  if(i>=0) order.splice(i,1); else order.push(f);
+  sync();});
 
 picksEl.addEventListener("click",function(e){
   var p=e.target.getAttribute&&e.target.getAttribute("data-pk");
@@ -428,7 +444,7 @@ document.getElementById("search").addEventListener("input",function(){
   q=this.value.trim().toLowerCase();draw();});
 
 document.getElementById("reset").addEventListener("click",function(){
-  drafted={};draw();});
+  order=[];sync();});
 
 var ths=document.querySelectorAll("thead th");
 [].forEach.call(ths,function(th){
@@ -440,7 +456,7 @@ var ths=document.querySelectorAll("thead th");
     draw();});});
 
 ths[0].insertAdjacentHTML("beforeend",'<span class="ar">\u25b2</span>');
-drawPicks();draw();
+sync();
 </script>
 </body>
 </html>
